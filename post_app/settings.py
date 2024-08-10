@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from rest_framework.permissions import IsAuthenticated
+from permissions import AllowAnyForSwagger
+
 
 from dotenv import load_dotenv
 
@@ -26,12 +29,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'rest_framework_simplejwt',
+    "rest_framework_simplejwt",
     "rest_framework",
-    'rest_framework.authtoken',
-    "post",  
+    "rest_framework.authtoken",
+    "post",
     "users",
-    "celery",    
+    "celery",
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -61,6 +65,7 @@ TEMPLATES = [
         },
     },
 ]
+
 
 WSGI_APPLICATION = "post_app.wsgi.application"
 
@@ -129,35 +134,36 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Настройки для пользователей
 AUTH_USER_MODEL = "users.CustomUser"
-LOGIN_URL = "users:login"
 # Настройки для супер пользователя
 ROOT_EMAIL = os.getenv("ROOT_EMAIL")
 ROOT_PASSWORD = os.getenv("ROOT_PASSWORD")
-# Настройка для Celery
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# URL-адрес брокера сообщений
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+
+# URL-адрес брокера результатов, также Redis
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
 # Настройка для DRF
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        AllowAnyForSwagger | IsAuthenticated,
     ],
 }
 # Настройка для JWT
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': 'your-secret-key',
-    'VERIFYING_KEY': None,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'AUTH_TOKEN_CLASSES': ('access',),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": "your-secret-key",
+    "VERIFYING_KEY": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "AUTH_TOKEN_CLASSES": ("access",),
 }
 # Настройки для спектакля
 SPECTACULAR_SETTINGS = {
@@ -165,9 +171,33 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Your project description",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-    "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
+    "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
     "REDOC_DIST": "SIDECAR",
+    "COMPONENT_SPLIT_REQUEST": True,  # Optional for separating requests/responses
+    "SCHEMA_AUTHENTICATION": [
+        {
+            "Bearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    ],
+}
+# Настройки для DRF
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+# Separate settings for swagger
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": None,  # Disable security for swagger
 }
 # Настройки для рассылки сообщений
 EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
@@ -176,3 +206,11 @@ EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_USE_TSL = True
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+# Настройки для Celery
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Yekaterinburg"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60

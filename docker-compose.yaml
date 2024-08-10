@@ -1,44 +1,38 @@
-version: '3'
+version: "3.9"
 
 services:
-  web:
-    build: .
-    command: gunicorn post_app.wsgi:application --bind 0.0.0.0:8000
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    depends_on:
-      - redis
-      - db
-
-  redis:
-    image: redis
-    ports:
-      - "6379:6379"
-
   db:
-    image: postgres:14
+    image: postgres:14.6-alpine
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: POSTGRES_DB
       POSTGRES_USER: POSTGRES_USER
       POSTGRES_PASSWORD: POSTGRES_PASSWORD
+      POSTGRES_DB: POSTGRES_DB
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - ./pddata:/var/lib/postgresql/data
 
-  celery:
-    build: .
-    command: celery -A post_app worker -l INFO
+  api:
+    build:
+      context: .
+    tty: false
+    volumes:
+      - .:/code
+    restart: on-failure
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
     depends_on:
-      - redis
-      - web
-
-  celery_beat:
-    build: .
-    command: celery -A post_app beat -l INFO
-    depends_on:
-      - redis
-      - web
+      db:
+        condition: service_healthy
 
 volumes:
-  postgres_data:
+  api:
+  db:
+    driver: local
